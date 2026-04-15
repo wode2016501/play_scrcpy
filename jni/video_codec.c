@@ -20,6 +20,23 @@ extern int  RECEIVER_HEIGHT;
 int read_(int fd, char* buf, size_t size, int max_size);
 int readyz(int fd, char* buf, int size_max);
 
+
+
+// 判断 H.264 NALU 类型
+int get_nalu_type(const uint8_t* data, size_t size) {
+    if (size < 5) return -1;
+    // 查找起始码 0x00 0x00 0x01 或 0x00 0x00 0x00 0x01
+    int offset = 0;
+    if (data[0] == 0 && data[1] == 0) {
+        if (data[2] == 1) offset = 3;
+        else if (data[2] == 0 && data[3] == 1) offset = 4;
+        else return -1;
+    }
+    // NALU 类型 = 第 offset 字节的低 5 位是否为I帧
+    return data[offset] & 0x1F==5;
+}
+
+
 void video_decode(int fd, ANativeWindow* window, int* running) {
     char buff[77];
     int ret = read_(fd, buff, 69, 69);
@@ -50,7 +67,7 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
     AMediaFormat_setString(format, "mime", "video/avc");
     AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, width);
     AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, height);
-    
+   // AMediaFormat_setInt32(format, PARAMETER_KEY_VIDEO_FPS, 60);
     AMediaCodec_configure(codec, format, window, NULL, 0);
     AMediaCodec_start(codec);
     
@@ -59,14 +76,13 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
     int buffersize = 1024 * 1024 * 6;
     char* buffer = malloc(buffersize);
     int qinputCount = 0,inputCount = 0, outputCount = 0;
-    ssize_t bufidx = AMediaCodec_dequeueInputBuffer(codec, -1);
+    ssize_t bufidx ;
     size_t bufsize;
-    uint8_t* buf = AMediaCodec_getInputBuffer(codec, bufidx, &bufsize);
-            int size = readyz(fd, (char*)buf, bufsize);
-              if (size > 0) 
-            AMediaCodec_queueInputBuffer(codec, bufidx, 0, size, 0, 0);
+    uint8_t* buf ; 
+     int size; 
+    int deng=-1; 
     while (*running) {
-        bufidx = AMediaCodec_dequeueInputBuffer(codec, 0);
+        bufidx = AMediaCodec_dequeueInputBuffer(codec, deng);
         if (bufidx >= 0) {
             
             buf = AMediaCodec_getInputBuffer(codec, bufidx, &bufsize);
@@ -74,9 +90,10 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
             if (size > 0) {
                 AMediaCodec_queueInputBuffer(codec, bufidx, 0, size, 0, 0);
                 inputCount++;
+                deng=0; 
             }
         }else{
-        readyz(fd,buffer,buffersize); 
+        readyz(fd,buffer,buffersize);
         qinputCount++;
         }
         AMediaCodecBufferInfo info;

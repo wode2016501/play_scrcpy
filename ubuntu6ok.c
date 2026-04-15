@@ -16,6 +16,7 @@
 #include <SDL2/SDL.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
+#include <fcntl.h>
 #include <libswscale/swscale.h>
 
 // ==================== 配置 ====================
@@ -332,6 +333,7 @@ void* video_thread_func(void* arg) {
     // 初始化FFmpeg解码器
     const AVCodec* codec = avcodec_find_decoder(AV_CODEC_ID_H264);
     if (!codec) {
+
         printf("[-] 找不到H.264解码器\n");
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
@@ -424,8 +426,10 @@ void* video_thread_func(void* arg) {
     printf("[!] 按 ESC 或 Q 退出\n\n");
     
     AVPacket pkt;
+    av_init_packet(&pkt);
     int frame_count = 0;
-    
+    int in_frame_count = 0;
+    int init=1;
     while (running) {
         // 获取当前窗口大小
         int new_width, new_height;
@@ -445,32 +449,45 @@ void* video_thread_func(void* arg) {
             }
             continue;
         }
+
+        if(init){
+            int ret=readyz(video_fd, (char*)video_buffer+size, buffer_size-size);
+            if(ret<=0){
+                running=0;
+                return NULL;
+            }
+            size+=ret;
+            init=0;
+        }
+        
+        
+        in_frame_count++;
         
         // 解码
         pkt.data = video_buffer;
         pkt.size = size;
         pkt.pts = AV_NOPTS_VALUE;
         pkt.dts = AV_NOPTS_VALUE;
-        
         int ret = avcodec_send_packet(codec_ctx, &pkt);
+        printf("[+] 发送包到解码器, 大小: %d bytes\n", size);
         if (ret < 0) {
             char errbuf[256];
             av_strerror(ret, errbuf, sizeof(errbuf));
-            // printf("[-] 发送包到解码器失败: %s\n", errbuf);
+             printf("[-] 发送包到解码器失败: %s\n", errbuf);
             continue;
         }
         
-        while (1) {
+     while (1) {
             ret = avcodec_receive_frame(codec_ctx, frame);
             if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                printf("+解码器需要更多的数据\n");
                 break;
             } else if (ret < 0) {
                 char errbuf[256];
                 av_strerror(ret, errbuf, sizeof(errbuf));
-                // printf("[-] 接收解码帧失败: %s\n", errbuf);
+                 printf("[-] 接收解码帧失败: %s\n", errbuf);
                 break;
             }
-            
             // 转换颜色空间
             sws_scale(sws_ctx, (const uint8_t* const*)frame->data, frame->linesize,
                      0, SERVER_HEIGHT, rgb_frame->data, rgb_frame->linesize);
@@ -716,3 +733,6 @@ int main(int argc, char* argv[]) {
     printf("[+] 程序退出\n");
     return 0;
 }
+
+
+
