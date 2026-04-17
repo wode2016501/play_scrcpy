@@ -1,3 +1,4 @@
+//tcpserver3.4.c
 /* 命令
 shell: adb push /usr/local/share/scrcpy/scrcpy-server /data/local/tmp/scrcpy-server-manual.jar1
 shell:  adb shell CLASSPATH=/data/local/tmp/scrcpy-server-manual.jar1 app_process / com.genymobile.scrcpy.Server 3.3.3 tunnel_forward=true audio=false control=false cleanup=false video_bit_rate=20000000
