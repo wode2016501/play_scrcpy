@@ -18,7 +18,7 @@ int socket_local_client;
 #include <unistd.h>
 #include <stdlib.h> // exit()
 #include <sys/select.h>
-#define BUFFER_SIZE 1024 * 1024 * 2
+#define BUFFER_SIZE 1024 * 1024 * 6
 #define TOU_SIZE 500
 #include <signal.h>
 static pthread_t serjar;
