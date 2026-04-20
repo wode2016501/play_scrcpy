@@ -15,7 +15,7 @@
 
 extern int  RECEIVER_WIDTH ; 
 extern int  RECEIVER_HEIGHT; 
-
+extern int  XY_SWAP_MODE; 
 // 读取函数声明
 int read_(int fd, char* buf, size_t size, int max_size);
 int readyz(int fd, char* buf, int size_max);
@@ -55,10 +55,13 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
     height = ntohl(height);
     LOGI("视频分辨率: %dx%d", width, height);
     
-   // RECEIVER_WIDTH=height;
-    // RECEIVER_HEIGHT=width;
+   if(XY_SWAP_MODE==1){
+   RECEIVER_WIDTH=height;
+     RECEIVER_HEIGHT=width;
+     }else{
     RECEIVER_WIDTH=width;
     RECEIVER_HEIGHT=height;
+    }
     
     ANativeWindow_setBuffersGeometry(window, width, height, WINDOW_FORMAT_RGBX_8888);
     
