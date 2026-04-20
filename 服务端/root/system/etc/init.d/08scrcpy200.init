@@ -1,8 +1,7 @@
 #! /system/bin/sh
+export PATH=$PATH:/data/bin
 while sleep 1;do
 ps -A |grep com.android.systemui && break
 done
-busybox brctl addbr br0
-ifconfig br0 192.168.12.12 up
 mkdir -p /data/log
-while  sleep 5 ;do scrcpy-server200    9999  1  /data/bin/video.sh  69 ; done  2>/data/log/scrcpy200.log.err  >/data/log/scrcpy200.log
+while  sleep 5 ;do scrcpy-server200    9999  1  video.sh  69 ; done   >/dev/null 
