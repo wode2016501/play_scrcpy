@@ -25,96 +25,7 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
-static int touchSocket = -1;
 
-// ==================== 自定义固定大小结构体 ====================
-typedef struct {
-    long long tv_sec;
-    long long tv_usec;
-    unsigned short type;
-    unsigned short code;
-    unsigned int value;
-} input_event_test;
-
-// ==================== 分辨率配置 ====================
-// 发送端（电视，竖屏）
-int  SENDER_WIDTH= 1920;
-int  SENDER_HEIGHT= 1080;
-
-// 接收端（横屏）
-int  RECEIVER_WIDTH =  2376; 
-int  RECEIVER_HEIGHT =1080; 
-
-// ==================== XY 转换开关 ====================
-// 0: 不转换（直接缩放）
-// 1: 交换 XY（竖屏转横屏）
-// 2: 只交换不缩放
-#define XY_SWAP_MODE  0 // 修改这里：0=不转换, 1=竖屏转横屏, 2=只交换
-
-// ==================== 配置 ====================
-
-#define TOUCH_RECEIVER_PORT 9000
-#define IP "192.168.100.1"
-char ipip[20]; 
-#define VIDEO_SERVER_PORT 9999
-#define AUDIO_SERVER_PORT 9998
-
-// ==================== 触摸点管理 ====================
-typedef struct {
-    int id;
-    int x;
-    int y;
-    int active;
-} TouchPoint;
-// ==================== 按键点管理 ====================
-typedef struct
-{
-	int keyCode;
-	int active;
-} KeyPoint;
-
-
-// ==================== 音视频 ====================
-static ANativeWindow* nativeWindow = NULL;
-static int running = 1;
-static pthread_t videoThread, audioThread;
-
-// ==================== 函数声明 ====================
-void* video_decode_thread(void* arg);
-void* audio_decode_thread(void* arg);
-int tcp_connect(const char* ip, int port);
-int read_(int fd, char* buf, size_t size, int max_size);
-int readyz(int fd, char* buf, int size_max);
-
-
-
-
-// 坐标转换函数
-int map_x(int x, int y) {
-    switch (XY_SWAP_MODE) {
-        case 0:  // 不转换，直接缩放
-            return x * RECEIVER_WIDTH / SENDER_WIDTH;
-        case 1:  // 竖屏转横屏：Y -> X
-            return RECEIVER_WIDTH-y * RECEIVER_WIDTH / SENDER_HEIGHT;
-        case 2:  // 只交换，不缩放
-            return y;
-        default:
-            return x * RECEIVER_WIDTH / SENDER_WIDTH;
-    }
-}
-
-int map_y(int x, int y) {
-    switch (XY_SWAP_MODE) {
-        case 0:  // 不转换，直接缩放
-            return y * RECEIVER_HEIGHT / SENDER_HEIGHT;
-        case 1:  // 竖屏转横屏：X -> Y
-            return x * RECEIVER_HEIGHT / SENDER_WIDTH;
-        case 2:  // 只交换，不缩放
-            return x;
-        default:
-            return y * RECEIVER_HEIGHT / SENDER_HEIGHT;
-    }
-}
 
 // ==================== 全屏设置 ====================
 void set_fullscreen(struct android_app* app) {
@@ -201,7 +112,92 @@ void set_fullscreen(struct android_app* app) {
     // 注意：不删除 activity，因为它是全局引用
 }
 
+// ==================== 自定义固定大小结构体 ====================
+typedef struct {
+    long long tv_sec;
+    long long tv_usec;
+    unsigned short type;
+    unsigned short code;
+    unsigned int value;
+} input_event_test;
 
+// ==================== 分辨率配置 ====================
+// 发送端（电视，竖屏）
+int  SENDER_WIDTH= 1920;
+int  SENDER_HEIGHT= 1080;
+
+// 接收端（横屏）
+int  RECEIVER_WIDTH =  2376; 
+int  RECEIVER_HEIGHT =1080; 
+
+// ==================== XY 转换开关 ====================
+// 0: 不转换（直接缩放）
+// 1: 交换 XY（竖屏转横屏）
+// 2: 只交换不缩放
+#define XY_SWAP_MODE  0 // 修改这里：0=不转换, 1=竖屏转横屏, 2=只交换
+
+// 坐标转换函数
+int map_x(int x, int y) {
+    switch (XY_SWAP_MODE) {
+        case 0:  // 不转换，直接缩放
+            return x * RECEIVER_WIDTH / SENDER_WIDTH;
+        case 1:  // 竖屏转横屏：Y -> X
+            return y * RECEIVER_WIDTH / SENDER_HEIGHT;
+        case 2:  // 只交换，不缩放
+            return y;
+        default:
+            return x * RECEIVER_WIDTH / SENDER_WIDTH;
+    }
+}
+
+int map_y(int x, int y) {
+    switch (XY_SWAP_MODE) {
+        case 0:  // 不转换，直接缩放
+            return y * RECEIVER_HEIGHT / SENDER_HEIGHT;
+        case 1:  // 竖屏转横屏：X -> Y
+            return x * RECEIVER_HEIGHT / SENDER_WIDTH;
+        case 2:  // 只交换，不缩放
+            return x;
+        default:
+            return y * RECEIVER_HEIGHT / SENDER_HEIGHT;
+    }
+}
+
+// ==================== 配置 ====================
+
+#define TOUCH_RECEIVER_PORT 9000
+#define IP "192.168.100.1"
+char ipip[20]; 
+#define VIDEO_SERVER_PORT 9999
+#define AUDIO_SERVER_PORT 9998
+
+// ==================== 触摸点管理 ====================
+typedef struct {
+    int id;
+    int x;
+    int y;
+    int active;
+} TouchPoint;
+
+static TouchPoint touchPoints[10];
+static int touchCount = 0;
+static pthread_mutex_t touchMutex = PTHREAD_MUTEX_INITIALIZER;
+
+// ==================== 网络 ====================
+static int touchSocket = -1;
+static pthread_mutex_t socketMutex = PTHREAD_MUTEX_INITIALIZER;
+
+// ==================== 音视频 ====================
+static ANativeWindow* nativeWindow = NULL;
+static int running = 1;
+static pthread_t videoThread, audioThread;
+
+// ==================== 函数声明 ====================
+void* video_decode_thread(void* arg);
+void* audio_decode_thread(void* arg);
+int tcp_connect(const char* ip, int port);
+int read_(int fd, char* buf, size_t size, int max_size);
+int readyz(int fd, char* buf, int size_max);
 
 // ==================== 网络连接 ====================
 int tcp_connect(const char* ip, int port) {
@@ -237,6 +233,37 @@ int connect_touch_receiver() {
     return touchSocket;
 }
 
+// 使用自定义结构体发送
+int send_input_event_test(int type, int code, int value) {
+    if (touchSocket < 0) {
+        if (connect_touch_receiver() < 0) {
+            return -1;
+        }
+    }
+    
+    input_event_test test_ev;
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    
+    test_ev.tv_sec = tv.tv_sec;
+    test_ev.tv_usec = tv.tv_usec;
+    test_ev.type = type;
+    test_ev.code = code;
+    test_ev.value = value;
+    
+    pthread_mutex_lock(&socketMutex);
+    ssize_t ret = send(touchSocket, &test_ev, sizeof(input_event_test), 0);
+    pthread_mutex_unlock(&socketMutex);
+    
+    if (ret != sizeof(input_event_test)) {
+        LOGE("发送失败: 发送了 %d/%d 字节", (int)ret, (int)sizeof(input_event_test));
+        close(touchSocket);
+        touchSocket = -1;
+        return -1;
+    }
+    
+    return 0;
+}
 
 // 发送触摸事件（带坐标转换）
 void send_touch_event(int id, int x, int y, int action) {
@@ -246,54 +273,84 @@ void send_touch_event(int id, int x, int y, int action) {
     
     LOGD("坐标转换: (%d,%d) -> (%d,%d) [模式=%d] %dx%d ", x, y, mapped_x, mapped_y, XY_SWAP_MODE,RECEIVER_WIDTH,RECEIVER_HEIGHT);
     
-
-    TouchPoint touch_point;
-    touch_point.id = id;
-    touch_point.x = mapped_x;
-    touch_point.y = mapped_y;
-    touch_point.active = action; // 0=按下, 1=移动, 2=抬起  
-
-    int ret=sizeof(TouchPoint);
-    ret=write(touchSocket, &ret, sizeof(int));
-    if(ret != sizeof(int))    {
-        LOGE("发送触摸事件大小失败");
-        close(touchSocket);
-        touchSocket = -1;
-        return;
+    if (action == 0) {  // 按下
+        send_input_event_test(EV_ABS, ABS_MT_SLOT, id % 10);
+        send_input_event_test(EV_ABS, ABS_MT_TRACKING_ID, id);
+        send_input_event_test(EV_ABS, ABS_MT_POSITION_X, mapped_x);
+        send_input_event_test(EV_ABS, ABS_MT_POSITION_Y, mapped_y);
+        send_input_event_test(EV_KEY, BTN_TOUCH, 1);
+        
+    } else if (action == 1) {  // 移动
+        send_input_event_test(EV_ABS, ABS_MT_SLOT, id % 10);
+        send_input_event_test(EV_ABS, ABS_MT_POSITION_X, mapped_x);
+        send_input_event_test(EV_ABS, ABS_MT_POSITION_Y, mapped_y);
+        
+    } else if (action == 2) {  // 抬起
+        send_input_event_test(EV_ABS, ABS_MT_SLOT, id % 10);
+        send_input_event_test(EV_ABS, ABS_MT_TRACKING_ID, -1);
+        
+        // 检查是否还有活动手指
+        int hasActive = 0;
+        pthread_mutex_lock(&touchMutex);
+        for (int i = 0; i < touchCount; i++) {
+            if (touchPoints[i].active && touchPoints[i].id != id) {
+                hasActive = 1;
+                break;
+            }
+        }
+        pthread_mutex_unlock(&touchMutex);
+        
+        if (!hasActive) {
+            send_input_event_test(EV_KEY, BTN_TOUCH, 0);
+        }
     }
-    ret=write(touchSocket, &touch_point, sizeof(TouchPoint));
-    if(ret != sizeof(TouchPoint))    {
-        LOGE("发送触摸事件失败");
-        close(touchSocket);
-        touchSocket = -1;
-        return;
-    }
+    
+    // SYN_REPORT
+    send_input_event_test(EV_SYN, SYN_REPORT, 0);
 }
 
 // 发送按键事件
 void send_key_event(int keyCode, int action) {
-    KeyPoint key;
-    key.keyCode = keyCode;
-    key.active = action;
-    int ret=sizeof(KeyPoint);
-    ret=write(touchSocket, &ret, sizeof(int));
-    if(ret != sizeof(int))    {
-        LOGE("发送按键事件大小失败");
-        close(touchSocket);
-        touchSocket = -1;
-        return;
-    }
-    ret=write(touchSocket, &key, sizeof(KeyPoint));
-    if(ret != sizeof(KeyPoint))    {
-        LOGE("发送按键事件失败");
-        close(touchSocket);
-        touchSocket = -1;
-        return;
-    }
+    send_input_event_test(EV_KEY, keyCode, action);
+    send_input_event_test(EV_SYN, SYN_REPORT, 0);
     LOGI("发送按键: code=%d, action=%s", keyCode, action ? "DOWN" : "UP");
 }
 
+// ==================== 触摸点管理 ====================
+void add_touch_point(int id, int x, int y) {
+    pthread_mutex_lock(&touchMutex);
+    if (touchCount < 10) {
+        touchPoints[touchCount].id = id;
+        touchPoints[touchCount].x = x;
+        touchPoints[touchCount].y = y;
+        touchPoints[touchCount].active = 1;
+        touchCount++;
+        LOGD("+ 手指%d: (%d,%d) 总数=%d", id, x, y, touchCount);
+    }
+    pthread_mutex_unlock(&touchMutex);
+}
 
+void remove_touch_point(int id) {
+    pthread_mutex_lock(&touchMutex);
+    for (int i = 0; i < touchCount; i++) {
+        if (touchPoints[i].id == id) {
+            for (int j = i; j < touchCount - 1; j++) {
+                touchPoints[j] = touchPoints[j + 1];
+            }
+            touchCount--;
+            LOGD("- 手指%d 剩余=%d", id, touchCount);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&touchMutex);
+}
+
+void clear_all_touch_points() {
+    pthread_mutex_lock(&touchMutex);
+    touchCount = 0;
+    memset(touchPoints, 0, sizeof(touchPoints));
+    pthread_mutex_unlock(&touchMutex);
+}
 
 // ==================== 触摸事件处理 ====================
 int handle_touch_event(AInputEvent* event) {
@@ -315,6 +372,7 @@ int handle_touch_event(AInputEvent* event) {
             
             LOGI("DOWN: id=%d, 原始坐标=(%d,%d)", id, x, y);
             send_touch_event(id, x, y, 0);
+            add_touch_point(id, x, y);
             break;
         }
         
@@ -334,12 +392,16 @@ int handle_touch_event(AInputEvent* event) {
             int id = AMotionEvent_getPointerId(event, pointerIndex);
             LOGI("UP: id=%d", id);
             send_touch_event(id, 0, 0, 2);
+            remove_touch_point(id);
             break;
         }
         
         case AMOTION_EVENT_ACTION_CANCEL: {
-            LOGI("清除CANCEL");
-            
+            LOGI("CANCEL");
+            for (int i = 0; i < touchCount; i++) {
+                send_touch_event(touchPoints[i].id, 0, 0, 2);
+            }
+            clear_all_touch_points();
             break;
         }
     }
@@ -513,8 +575,8 @@ void android_main(struct android_app* app) {
            // if(pp!=0)*pp=0; 
            // p=strchr(ipip,' ');
            // if(p!=0)*p=0; 
-         // 把这行：
-
+            
+        // 把这行：
 // 改成：
 close(fd);
     }
