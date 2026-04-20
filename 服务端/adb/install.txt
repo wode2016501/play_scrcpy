@@ -1,0 +1,18 @@
+1服务端
+运行 run.bat或者run.sh就可以
+临时使用
+window 双击就可以
+
+永久使用作为服务器
+脱离电脑使用插上充电器就可以
+比如在termux下使用服务器
+adb 授权 //可以百度termux  adb连接本机 
+sh  run.sh
+
+
+
+2客户端(手机 电视安装client.apk) 
+要设置ip的: 
+/sdcard/scrcpy.txt
+除了ip不要有回车或者其他字符
+echo 192.168.1.123 |tr -d '\n' >/sdcard/scrcpy.txt

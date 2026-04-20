@@ -1,0 +1,9 @@
+#! /system/bin/sh
+while sleep 1;do
+ps -A |grep com.android.systemui && break
+done
+while sleep 1;do
+wm size |grep 'Physical size:' |tr  x ' ' |while read a b c d ;do
+inin $c $d >/dev/null
+done
+done 
