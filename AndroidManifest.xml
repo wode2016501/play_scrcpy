@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.mycompany.myndkapp"
+    package="com.scrcpy.org"
     android:versionCode="1"
     android:versionName="1.0">
 
@@ -26,13 +26,12 @@
     <uses-sdk android:minSdkVersion="14"/>
 
     <application
-        android:label="手机屏幕"
+        android:label="同屏"
         android:debuggable="true"
         android:allowBackup="true">
 
         <activity
             android:name="android.app.NativeActivity"
-            android:label="手机屏幕"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:screenOrientation="landscape">
 
