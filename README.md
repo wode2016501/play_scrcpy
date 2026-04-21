@@ -1,2 +1,1 @@
-# playscrcpyandroid
-# playscrcpyandroid
+# play_scrcpy
