@@ -7,4 +7,4 @@ while sleep 1;do
 wm size |grep 'Physical size:' |tr  x ' ' |while read a b c d ;do
 inin $c $d >/dev/null
 done
-done 
+done >/dev/null 2>/dev/null &

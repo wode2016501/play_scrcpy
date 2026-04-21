@@ -58,12 +58,12 @@ int open_scrcpy_server()
         return 0;
     pthread_create(&serjar, NULL, serjar_thread, NULL);
     printf("打开文件: %s\n", scrcpyport);
-    sleep(1);
+    while(1){
     scrcpy_fd = socket_local_client(scrcpyport, 0, 1);
-    if (scrcpy_fd < 0)
-    {
+    if (scrcpy_fd >0)
+    break;
         fprintf(stderr, "打开文件失败: %s\n", scrcpyport);
-        return -1;
+    usleep(100000);
     }
     printf("打开文件: %s成功\n", scrcpyport);
     char *p = tou;
