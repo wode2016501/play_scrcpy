@@ -1,8 +1,4 @@
 // unified_receiver.c - 统一接收端（设备创建 + 网络接收）
-/*
-添加
-v3:    添加延时77,78行
-*/
 #include <linux/input.h>
 #include <linux/uinput.h>
 #include <stdio.h>
@@ -18,7 +14,7 @@ v3:    添加延时77,78行
 //#define printf(...) printf( LOG_TAG, __VA_ARGS__)
 //#define fprintf(stderr,...) fprintf(stderr, LOG_TAG, __VA_ARGS__)
 //#define printf(...) printf(  __VA_ARGS__)
- 
+
 #define PORT 9000
 int SCREEN_WIDTH = 2376;
 int SCREEN_HEIGHT = 1080;
@@ -60,9 +56,39 @@ static pthread_mutex_t uinputMutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 //延时
- struct timespec prev_ts = {0, 0};
-  struct timespec now;
-  long long interval_us = 0;
+struct idtime {
+	struct timespec prev_ts;
+	struct timespec now;
+};
+/*
+   struct idtime {
+   struct timespec prev_ts;
+   struct timespec now;
+   };
+   struct idtime tidt[10];
+   struct idtime *idt = tidt;   // 指向数组首元素
+   memset(idt, 0, sizeof(tidt));  // 所有成员初始为0
+
+   for (int i = 0; i < count; i++) {
+   clock_gettime(CLOCK_MONOTONIC, &idt[i].now);   // 注意用 . 而不是 ->
+   long long interval_us = 0;
+   if (idt[i].prev_ts.tv_sec != 0 || idt[i].prev_ts.tv_nsec != 0) {  // 避免初始0导致的误判
+   interval_us = (idt[i].now.tv_sec - idt[i].prev_ts.tv_sec) * 1000000LL +
+   (idt[i].now.tv_nsec - idt[i].prev_ts.tv_nsec) / 1000;
+   }
+   if (interval_us > 0 && interval_us < 3000) {
+// 间隔太小，跳过此事件（不写入）
+continue;   // 而不是 return
+}
+idt[i].prev_ts = idt[i].now;
+// ... 写入 uinput ...
+}
+*/
+
+
+
+
+
 // ==================== 注入事件到虚拟设备 ====================
 int inject_event(int uinput_fd, struct input_event *ev)
 {
@@ -70,12 +96,6 @@ int inject_event(int uinput_fd, struct input_event *ev)
 	{
 		return -1;
 	}
-	 clock_gettime(CLOCK_MONOTONIC, &now);
-	                   interval_us = (now.tv_sec - prev_ts.tv_sec) * 1000000LL +
-                                  (now.tv_nsec - prev_ts.tv_nsec) / 1000;
-             prev_ts = now;
-               if (interval_us < 3600) 
-               usleep(1000);
 	if (write(uinput_fd, ev, sizeof(struct input_event)) != sizeof(struct input_event))
 	{
 		perror("写入设备失败");
@@ -211,13 +231,13 @@ void enable_all_keys(int fd)
 	// 字母键 A-Z
 	for (int key = KEY_A; key <= KEY_Z; key++)
 	{
-		ioctl(fd, UI_SET_KEYBIT, key);
+	ioctl(fd, UI_SET_KEYBIT, key);
 	}
 
 	// 数字键 0-9
 	for (int key = KEY_0; key <= KEY_9; key++)
 	{
-		ioctl(fd, UI_SET_KEYBIT, key);
+	ioctl(fd, UI_SET_KEYBIT, key);
 	}
 
 	// 功能键
@@ -250,7 +270,7 @@ void enable_all_keys(int fd)
 	ioctl(fd, UI_SET_KEYBIT, KEY_RIGHTCTRL);
 	ioctl(fd, UI_SET_KEYBIT, KEY_LEFTALT);
 	ioctl(fd, UI_SET_KEYBIT, KEY_RIGHTALT);
-*/
+	*/
 	printf("✓ 已启用所有按键\n");
 }
 
@@ -352,6 +372,12 @@ void *receive_thread(void *arg)
 	int eventmax = 0;
 	int id[10];
 	memset(id, 0, sizeof(id));
+	struct idtime tidt[10];
+	struct idtime *idt = tidt;   // 指向数组首元素
+	memset(idt, 0, sizeof(tidt));  // 所有成员初始为0
+	long long interval_us = 0;
+
+
 	while (running)
 	{
 		bytes_read = read_(client_fd, &size, sizeof(int), sizeof(int));
@@ -360,8 +386,18 @@ void *receive_thread(void *arg)
 			bytes_read = read_(client_fd, &tp, sizeof(TouchPoint), sizeof(TouchPoint));
 			if (bytes_read == sizeof(TouchPoint))
 			{
+				if(	tp.id<10){
+					clock_gettime(CLOCK_MONOTONIC, &idt[tp.id].now);   // 注意用 . 而不是 ->
+					interval_us = (idt[tp.id].now.tv_sec - idt[tp.id].prev_ts.tv_sec) * 1000000LL +
+						(idt[tp.id].now.tv_nsec - idt[tp.id].prev_ts.tv_nsec) / 1000;
+					idt[tp.id].prev_ts = idt[tp.id].now;
+					if (interval_us < 4000) 
+						usleep(4000); 
+				}
+
+
 				tp.id+=client_fd;
-				printf("接收触摸事件: id=%d, x=%d, y=%d, action=%d\n", tp.id, tp.x, tp.y, tp.active);
+				printf("接收触摸事件: id=%d, x=%d, y=%d, action=%d,%dms\n", tp.id, tp.x, tp.y, tp.active,interval_us );
 				send_touch_event(tp.id, tp.x, tp.y, tp.active);
 				if (tp.active == 0)
 				{
@@ -501,7 +537,7 @@ int main(int argc, char **argv)
 	printf("等待发送端连接，端口: %d...\n", PORT);
 
 
-		// 1. 创建虚拟设备
+	// 1. 创建虚拟设备
 	uinput_fd = create_virtual_device();
 	if (uinput_fd < 0)
 	{
