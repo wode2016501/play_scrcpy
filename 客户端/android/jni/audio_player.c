@@ -11,6 +11,7 @@
 #define LOG_TAG "AudioPlayer"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
 // 读取函数声明
 int read_(int fd, char* buf, size_t size, int max_size);
@@ -48,21 +49,24 @@ void bufferQueueCallback(SLAndroidSimpleBufferQueueItf bq, void* context) {
 
 }
 
-void audio_play(int fd, int* running) {
-	LOGI("音频播放启动");
+int  audio_play(int fd, int* running) {
+	LOGI("音频初始化");
 
 	// 跳过 PCM 头
 	char buf[69];
-	read_(fd, buf, 69, 69);
-
+	int ret=read_(fd, buf, 69, 69);
+    if(ret!=69){
+        LOGE("读取音频69字节错误: %d",ret);
+        return -1; 
+    }
 	// 分配缓冲区
 	pcmBuffer = malloc(pcmBufferSize);
 	if (!pcmBuffer) {
 		LOGE("分配缓冲区失败");
-		return;
+		return -1;
 	}
 
-	// 初始化 OpenSL ES
+	LOGD("初始化 OpenSL ES");
 	slCreateEngine(&g_player.engineObject, 0, NULL, 0, NULL, NULL);
 	(*g_player.engineObject)->Realize(g_player.engineObject, SL_BOOLEAN_FALSE);
 	(*g_player.engineObject)->GetInterface(g_player.engineObject, SL_IID_ENGINE, &g_player.engineEngine);
@@ -70,7 +74,7 @@ void audio_play(int fd, int* running) {
 	(*g_player.engineEngine)->CreateOutputMix(g_player.engineEngine, &g_player.outputMixObject, 0, NULL, NULL);
 	(*g_player.outputMixObject)->Realize(g_player.outputMixObject, SL_BOOLEAN_FALSE);
 
-	// 配置 PCM 格式
+	LOGD("配置 PCM 格式");
 	SLDataLocator_AndroidSimpleBufferQueue loc_bufq = {
 		SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 2
 	};
@@ -91,7 +95,7 @@ void audio_play(int fd, int* running) {
 
 	const SLInterfaceID ids[] = {SL_IID_ANDROIDSIMPLEBUFFERQUEUE};
 	const SLboolean req[] = {SL_BOOLEAN_TRUE};
-
+     LOGD("音频创建函数");
 	(*g_player.engineEngine)->CreateAudioPlayer(g_player.engineEngine, &g_player.playerObject,
 			&audioSrc, &audioSnk, 1, ids, req);
 
@@ -101,8 +105,8 @@ void audio_play(int fd, int* running) {
 	g_player.fd=fd;
 	(*g_player.bufferQueue)->RegisterCallback(g_player.bufferQueue, bufferQueueCallback, &g_player);
 
-	// 预加载数据
-	int ret = readyz(fd, (char*)pcmBuffer, pcmBufferSize);
+	LOGD("预加载数");
+	ret = readyz(fd, (char*)pcmBuffer, pcmBufferSize);
 	if (ret > 0) {
 		(*g_player.bufferQueue)->Enqueue(g_player.bufferQueue, pcmBuffer, ret);
 	}
@@ -110,7 +114,7 @@ void audio_play(int fd, int* running) {
 	g_player.isPlaying = 1;
 	(*g_player.playerPlay)->SetPlayState(g_player.playerPlay, SL_PLAYSTATE_PLAYING);
 
-	LOGI("音频播放中...");
+	LOGI("音频初始化完成...");
 
 	// 等待停止信号
     /*
@@ -118,6 +122,7 @@ void audio_play(int fd, int* running) {
 		usleep(100000);
 	}*/
     astatus=1; 
+    return 0; 
 }
 void freeaudio(){
     if(astatus==0)

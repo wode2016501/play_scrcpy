@@ -16,6 +16,10 @@
 #include <android/native_window_jni.h>
 #include <jni.h>
 #include <stdlib.h>
+#include <netinet/tcp.h>   // 添加这一行
+
+
+
 
 // 音视频解码头文件
 #include "video_codec.h"
@@ -28,16 +32,16 @@
 
 static int touchSocket = -1;
 static  int audioFd=-1; 
-static  int videoFd=-1; 
-
+static  int videoFd=-1;
+/*
+struct idtime{
+	struct timespec prev_ts;
+	struct timespec now;
+};
+long long interval_us = 0;
+struct idtime *idt=0;
+*/
 // ==================== 自定义固定大小结构体 ====================
-typedef struct {
-	long long tv_sec;
-	long long tv_usec;
-	unsigned short type;
-	unsigned short code;
-	unsigned int value;
-} input_event_test;
 
 // ==================== 分辨率配置 ====================
 // 发送端（电视，竖屏）
@@ -317,7 +321,19 @@ int handle_touch_event(AInputEvent* event) {
 
 		case AMOTION_EVENT_ACTION_MOVE: {
 							int count = AMotionEvent_getPointerCount(event);
+							if(count>10)count=10; 
 							for (int i = 0; i < count; i++) {
+                                /*
+								clock_gettime(CLOCK_MONOTONIC, &idt[i].now);   // 注意用 . 而不是 ->
+								interval_us = (idt[i].now.tv_sec - idt[i].prev_ts.tv_sec) * 1000000LL +
+									(idt[i].now.tv_nsec - idt[i].prev_ts.tv_nsec) / 1000;
+
+								if (interval_us < 3000) {
+									// 间隔太小，跳过此事件（不写入）
+									continue;   // 而不是 return
+								}
+								idt[i].prev_ts = idt[i].now;
+                                */
 								int id = AMotionEvent_getPointerId(event, i);
 								int x = (int) AMotionEvent_getX(event, i);
 								int y = (int) AMotionEvent_getY(event, i);
@@ -452,26 +468,26 @@ void* video_decode_thread(void* arg) {
 
 
 void closeall(){
-    running = 0;
-    pthread_join(videoThread, NULL);
-    freeaudio();
-    close(audioFd);
-    close(videoFd);
-    close(touchSocket); 
-    if (touchSocket >= 0) {
-        close(touchSocket);
+	running = 0;
+	pthread_join(videoThread, NULL);
+	freeaudio();
+	close(audioFd);
+	close(videoFd);
+	close(touchSocket); 
+	if (touchSocket >= 0) {
+		close(touchSocket);
 	}
 }
 
 // ==================== 应用生命周期 ====================
-static on_ext=1; 
+
 static void on_app_cmd(struct android_app* app, int32_t cmd) {
 	switch (cmd) {
 		case APP_CMD_PAUSE:
 			LOGI("应用进入后台");
 			running=0;
-            if(touchSocket>0)
-                closeall();
+			if(touchSocket>0)
+				closeall();
 			LOGI("后台退出");
 			exit(0); 
 			break;
@@ -507,32 +523,43 @@ void android_main(struct android_app* app) {
 		LOGD("读取ip: %s",ipip); 
 		close(fd);
 	}
-	
+	struct idtime tidt[10];
+	idt=tidt;
+	memset(idt,0,sizeof(tidt));
 	audioFd = tcp_connect(ipip, AUDIO_SERVER_PORT);
 	if (audioFd < 0) {
 		LOGE("连接音频服务器失败");
 		return; 
 	}
+
+
 	videoFd = tcp_connect(ipip, VIDEO_SERVER_PORT);
 	if (videoFd < 0) {
 		LOGE("连接视频服务器失败");
-        close(audioFd);
+		close(audioFd);
 		return;
 	}
 	touchSocket = tcp_connect(ipip, TOUCH_RECEIVER_PORT);
 	if (touchSocket < 0) {
 		LOGE("连接按键服务器失败");
-        close(audioFd);
-        close(videoFd);
+		close(audioFd);
+		close(videoFd);
 		return; 
 	}
-    
-    LOGI("NativeActivity 启动\nip=%s",ipip);
-    app->onInputEvent = on_input_event;
+	int ret=audio_play(audioFd, &running);
+	if(ret==-1){
+		running=0;
+		return ;
+	}
+	int flag = 1;
+	ret=setsockopt(touchSocket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+	if(ret<0)
+		return ; 
+	LOGI("NativeActivity 启动\nip=%s",ipip);
+	app->onInputEvent = on_input_event;
 	app->onAppCmd = on_app_cmd;  // ★ 添加生命周期回调
 	set_fullscreen(app);
 	pthread_create(&videoThread, NULL, video_decode_thread, NULL);
-	audio_play(audioFd, &running);
 	int ident;
 	int events;
 	struct android_poll_source* source;
@@ -556,7 +583,6 @@ void android_main(struct android_app* app) {
 			SENDER_WIDTH=ANativeWindow_getWidth(nativeWindow);
 			SENDER_HEIGHT=ANativeWindow_getHeight(nativeWindow);
 			LOGI("========================================");
-			LOGI("固定结构体大小: %d", (int)sizeof(input_event_test));
 			LOGI("发送端分辨率: %dx%d", SENDER_WIDTH, SENDER_HEIGHT);
 			LOGI("接收端分辨率: %dx%d", RECEIVER_WIDTH, RECEIVER_HEIGHT);
 			LOGI("XY转换模式: %d", XY_SWAP_MODE);
@@ -582,9 +608,9 @@ void android_main(struct android_app* app) {
 
 
 	while (running) {
-        ident = ALooper_pollOnce(-1, NULL, &events, (void**)&source);
-        if(ident<0) 
-            break; 
+		ident = ALooper_pollOnce(-1, NULL, &events, (void**)&source);
+		if(ident<0) 
+			break; 
 		if (source) {
 			source->process(app, source);
 		}

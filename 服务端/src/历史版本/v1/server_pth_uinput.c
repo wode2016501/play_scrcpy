@@ -1,8 +1,4 @@
 // unified_receiver.c - 统一接收端（设备创建 + 网络接收）
-/*
-添加
-v3:    添加延时77,78行
-*/
 #include <linux/input.h>
 #include <linux/uinput.h>
 #include <stdio.h>
@@ -18,7 +14,11 @@ v3:    添加延时77,78行
 //#define printf(...) printf( LOG_TAG, __VA_ARGS__)
 //#define fprintf(stderr,...) fprintf(stderr, LOG_TAG, __VA_ARGS__)
 //#define printf(...) printf(  __VA_ARGS__)
- 
+
+
+
+
+
 #define PORT 9000
 int SCREEN_WIDTH = 2376;
 int SCREEN_HEIGHT = 1080;
@@ -58,11 +58,6 @@ static int touchCount = 0;
 static pthread_mutex_t touchMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t uinputMutex = PTHREAD_MUTEX_INITIALIZER;
 
-
-//延时
- struct timespec prev_ts = {0, 0};
-  struct timespec now;
-  long long interval_us = 0;
 // ==================== 注入事件到虚拟设备 ====================
 int inject_event(int uinput_fd, struct input_event *ev)
 {
@@ -70,12 +65,7 @@ int inject_event(int uinput_fd, struct input_event *ev)
 	{
 		return -1;
 	}
-	 clock_gettime(CLOCK_MONOTONIC, &now);
-	                   interval_us = (now.tv_sec - prev_ts.tv_sec) * 1000000LL +
-                                  (now.tv_nsec - prev_ts.tv_nsec) / 1000;
-             prev_ts = now;
-               if (interval_us < 3600) 
-               usleep(1000);
+
 	if (write(uinput_fd, ev, sizeof(struct input_event)) != sizeof(struct input_event))
 	{
 		perror("写入设备失败");

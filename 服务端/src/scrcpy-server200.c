@@ -172,9 +172,17 @@ int add_client(int server_socket)
             return -1;
         }
     }
-    write(client_socket, tou, tousize); // 向客户端发送欢迎消息
+    printf("写入开始%d字符\n",tousize);
+    ret=write(client_socket, tou, tousize); // 向客户端发送欢迎消息
+    if(ret!= tousize)
+    {
+    	    fprintf(stderr,"写入开始%d字符失败\n",tousize);
+    	  close(client_socket);
+    	return -1; 
+    	}
     client_arr[ok] = client_socket;     // 将客户端套接字存储到客户端数组中
     client_length++;                    // 客户端数量加1
+    printf("%d 连接初始化完成 count %d\n", client_socket, client_length);
     return client_socket;
 }
 
