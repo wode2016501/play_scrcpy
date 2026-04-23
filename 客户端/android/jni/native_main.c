@@ -523,9 +523,11 @@ void android_main(struct android_app* app) {
 		LOGD("读取ip: %s",ipip); 
 		close(fd);
 	}
+    /*
 	struct idtime tidt[10];
 	idt=tidt;
 	memset(idt,0,sizeof(tidt));
+    */
 	audioFd = tcp_connect(ipip, AUDIO_SERVER_PORT);
 	if (audioFd < 0) {
 		LOGE("连接音频服务器失败");
