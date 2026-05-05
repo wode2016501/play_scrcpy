@@ -350,7 +350,7 @@ void *receive_thread(void *arg)
 			bytes_read = read_(client_fd, &tp, sizeof(TouchPoint), sizeof(TouchPoint));
 			if (bytes_read == sizeof(TouchPoint))
 			{
-				tp.id+=client_fd;
+			  tp.id=tp.id+client_fd*10;
 				printf("接收触摸事件: id=%d, x=%d, y=%d, action=%d\n", tp.id, tp.x, tp.y, tp.active);
 				send_touch_event(tp.id, tp.x, tp.y, tp.active);
 				if (tp.active == 0)

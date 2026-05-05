@@ -3,5 +3,4 @@ export PATH=$PATH:/data/bin
 while sleep 1;do
 ps -A |grep com.android.systemui && break
 done
-mkdir -p /data/log
 while  sleep 1 ;do scrcpy-server200  9998 2 audio.sh 69  ; done  >/dev/null 2>/dev/null &

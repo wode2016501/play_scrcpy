@@ -56,7 +56,7 @@ int  RECEIVER_HEIGHT =1080;
 // 0: 不转换（直接缩放）
 // 1: 交换 XY（竖屏转横屏）
 // 2: 只交换不缩放
-int  XY_SWAP_MODE =  0; // 修改这里：0=不转换, 1=竖屏转横屏, 2=只交换
+int  XY_SWAP_MODE =  1; // 修改这里：0=不转换, 1=竖屏转横屏, 2=只交换
 
 // ==================== 配置 ====================
 
@@ -465,6 +465,13 @@ void* video_decode_thread(void* arg) {
 }
 
 
+void *audio_play_thread(void *a){
+   int  ret=audio_play(audioFd, &running);
+    if(ret==-1){
+        running=0;
+    }
+}
+
 
 
 void closeall(){
@@ -523,14 +530,11 @@ void android_main(struct android_app* app) {
 		LOGD("读取ip: %s",ipip); 
 		close(fd);
 	}
-    /*
-	struct idtime tidt[10];
-	idt=tidt;
-	memset(idt,0,sizeof(tidt));
-    */
+   
 	audioFd = tcp_connect(ipip, AUDIO_SERVER_PORT);
 	if (audioFd < 0) {
 		LOGE("连接音频服务器失败");
+        
 		return; 
 	}
 
@@ -546,35 +550,32 @@ void android_main(struct android_app* app) {
 		LOGE("连接按键服务器失败");
 		close(audioFd);
 		close(videoFd);
+        
 		return; 
 	}
-	int ret=audio_play(audioFd, &running);
-	if(ret==-1){
-		running=0;
-		return ;
-	}
+	
 	int flag = 1;
-	ret=setsockopt(touchSocket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
-	if(ret<0)
-		return ; 
+	int ret=setsockopt(touchSocket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+	if(ret<0){
+       return ; 
+        }
 	LOGI("NativeActivity 启动\nip=%s",ipip);
 	app->onInputEvent = on_input_event;
 	app->onAppCmd = on_app_cmd;  // ★ 添加生命周期回调
 	set_fullscreen(app);
 	pthread_create(&videoThread, NULL, video_decode_thread, NULL);
+    pthread_create(&audioThread, NULL, audio_play_thread, NULL);
+    
 	int ident;
 	int events;
 	struct android_poll_source* source;
 
 	LOGE("进入while");
 	while (app->destroyRequested == 0&&running) {
-
-		LOGE("等待ALooper_pollOnce");
 		while ((ident = ALooper_pollOnce(0, NULL, &events, (void**)&source)) >= 0) {
 			if (source) {
 				source->process(app, source);
 			}
-			LOGE("ALooper_pollOnce内循环");
 		}
 		LOGE("退出ALooper_pollOnce");
 		if (app->window && !nativeWindow) {
@@ -608,7 +609,6 @@ void android_main(struct android_app* app) {
 
 
 
-
 	while (running) {
 		ident = ALooper_pollOnce(-1, NULL, &events, (void**)&source);
 		if(ident<0) 
@@ -620,5 +620,6 @@ void android_main(struct android_app* app) {
 
 	closeall();
 	LOGI("NativeActivity 退出");
+    ANativeActivity_finish(app->activity);
 	return ; 
 }

@@ -391,12 +391,18 @@ void *receive_thread(void *arg)
 					interval_us = (idt[tp.id].now.tv_sec - idt[tp.id].prev_ts.tv_sec) * 1000000LL +
 						(idt[tp.id].now.tv_nsec - idt[tp.id].prev_ts.tv_nsec) / 1000;
 					idt[tp.id].prev_ts = idt[tp.id].now;
-					if (interval_us < 4000) 
-						usleep(4000); 
+					if (interval_us < 8000&&tp.active==1) {
+							continue;
+					//	usleep(3000); 
+					}
+				   if (interval_us < 8000&&tp.active==2) {
+						//	continue;
+					usleep(6000); 
+					}
 				}
 
 
-				tp.id+=client_fd;
+				tp.id=tp.id+client_fd*10;
 				printf("接收触摸事件: id=%d, x=%d, y=%d, action=%d,%dms\n", tp.id, tp.x, tp.y, tp.active,interval_us );
 				send_touch_event(tp.id, tp.x, tp.y, tp.active);
 				if (tp.active == 0)
