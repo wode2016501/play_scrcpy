@@ -14,6 +14,7 @@ import android.view.WindowManager;
 import android.os.Build;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.widget.VideoView;
 
 public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private static final int XY_SWAP_MODE = 0;   // 必须与 C 端一致
@@ -23,6 +24,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private TextView statusTextView;
     private TouchSender touchSender;
     private KeySender keySender;
+    
     private VideoPlayer videoPlayer;
     private AudioPlayer audioPlayer;
     private String serverIp;
@@ -239,6 +241,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         // 更新本地窗口分辨率（sender）
+        if(width>0)
         CoordTransform.setSenderSize(width, height);
     }
 
