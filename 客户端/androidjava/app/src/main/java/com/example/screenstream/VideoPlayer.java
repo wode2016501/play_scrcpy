@@ -16,9 +16,14 @@ public class VideoPlayer implements Runnable {
     private volatile boolean running;
     private Socket socket;
     private OnVideoSizeListener onSizeListener;
+    private OnFpsListener onFpsListener;
 
     public interface OnVideoSizeListener {
         void onSize(int width, int height);
+    }
+
+    public interface OnFpsListener {
+        void onFps(float fps);
     }
 
     public VideoPlayer(String ip, int port, Surface surface, OnVideoSizeListener listener) {
@@ -26,6 +31,10 @@ public class VideoPlayer implements Runnable {
         this.port = port;
         this.surface = surface;
         this.onSizeListener = listener;
+    }
+
+    public void setOnFpsListener(OnFpsListener listener) {
+        this.onFpsListener = listener;
     }
 
     public void start() {
@@ -50,16 +59,19 @@ public class VideoPlayer implements Runnable {
     @Override
     public void run() {
         MediaCodec codec = null;
+        int frameCount = 0;
+        long lastTime = System.nanoTime();
+
         try {
             socket = new Socket(ip, port);
             socket.setTcpNoDelay(true);
             InputStream is = socket.getInputStream();
 
-            // 1. 读取 69 字节固定头
+            // 固定头69字节
             byte[] header = new byte[69];
             readFully(is, header, 0, 69);
 
-            // 2. 读取视频宽高（网络序）
+            // 读取宽高
             byte[] wb = new byte[4];
             byte[] hb = new byte[4];
             readFully(is, wb, 0, 4);
@@ -69,12 +81,11 @@ public class VideoPlayer implements Runnable {
             int height = ((hb[0] & 0xFF) << 24) | ((hb[1] & 0xFF) << 16) |
                 ((hb[2] & 0xFF) << 8)  | (hb[3] & 0xFF);
 
-            // 3. 回调视频分辨率（发送端原始尺寸）
             if (onSizeListener != null) {
                 onSizeListener.onSize(width, height);
             }
+            CoordTransform.setReceiverSize(width,height);
 
-            // 配置 MediaCodec
             codec = MediaCodec.createDecoderByType("video/avc");
             MediaFormat format = MediaFormat.createVideoFormat("video/avc", width, height);
             codec.configure(format, surface, null, 0);
@@ -82,13 +93,11 @@ public class VideoPlayer implements Runnable {
 
             byte[] ptsBuf = new byte[8];
             byte[] lenBuf = new byte[4];
-            byte[] dataBuf = new byte[1024 * 1024*6];
+            byte[] dataBuf = new byte[1024 * 1024];
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
 
             while (running) {
-                // 读取 PTS (8字节)
                 readFully(is, ptsBuf, 0, 8);
-                // 读取长度 (4字节，网络序)
                 readFully(is, lenBuf, 0, 4);
                 int length = ((lenBuf[0] & 0xFF) << 24) | ((lenBuf[1] & 0xFF) << 16) |
                     ((lenBuf[2] & 0xFF) << 8)  | (lenBuf[3] & 0xFF);
@@ -106,6 +115,17 @@ public class VideoPlayer implements Runnable {
                 int outIndex = codec.dequeueOutputBuffer(info, 10000);
                 if (outIndex >= 0) {
                     codec.releaseOutputBuffer(outIndex, true);
+                    // 统计帧数
+                    frameCount++;
+                    long now = System.nanoTime();
+                    if (now - lastTime >= 1_000_000_000L) { // 1秒
+                        float fps = frameCount * 1_000_000_000f / (now - lastTime);
+                        if (onFpsListener != null) {
+                            onFpsListener.onFps(fps);
+                        }
+                        frameCount = 0;
+                        lastTime = now;
+                    }
                 }
             }
         } catch (Exception e) {

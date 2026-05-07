@@ -27,6 +27,20 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     private AudioPlayer audioPlayer;
     private String serverIp;
     private boolean isConnected = false;
+    
+    private float currentFps = 0;
+    private int currentVideoWidth = 0, currentVideoHeight = 0;
+
+    private void updateStatusWithFps() {
+        String text = String.format("Video: %dx%d → Screen: %dx%d  FPS: %.1f",
+                                    CoordTransform.getSenderHeight(), CoordTransform.getSenderWidth(),
+                                    CoordTransform.getReceiverWidth(),
+                                    CoordTransform.getReceiverHeight(),
+                                    currentFps);
+        statusTextView.setText(text);
+    }
+    
+    
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -187,6 +201,22 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                                                                                      videoWidth, videoHeight,
                                                                                      CoordTransform.getSenderWidth(),
                                                                                      CoordTransform.getSenderHeight()));
+                                            }
+                                        });
+                                }
+                            });
+                            
+                            
+                            
+                        // 设置 FPS 监听
+                        videoPlayer.setOnFpsListener(new VideoPlayer.OnFpsListener() {
+                                @Override
+                                public void onFps(final float fps) {
+                                    runOnUiThread(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                currentFps = fps;
+                                                updateStatusWithFps();
                                             }
                                         });
                                 }
