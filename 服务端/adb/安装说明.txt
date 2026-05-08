@@ -1,17 +1,24 @@
 1服务端
 运行 run.bat或者run.sh就可以
 临时使用
-window 双击就可以
+window 双击就run.bat可以
+！如果支持adbroot 会支持默认开机启动
+
+
 
 永久使用作为服务器
-脱离电脑使用插上充电器就可以
-比如在termux下使用服务器
-adb 授权 //可以百度termux  adb连接本机 
-sh  run.sh
+支持面具启动的会支持默认开机启动 
+root下运行
+sh install.sh
 
 
 
 2客户端(手机 电视安装client.apk) 
+client.apk 是c语言写的
+java版可以看到信息
+
+设置
+打开设置  给app文件权限 
 要设置ip的: 
 /sdcard/scrcpy.txt
 除了ip不要有回车或者其他字符

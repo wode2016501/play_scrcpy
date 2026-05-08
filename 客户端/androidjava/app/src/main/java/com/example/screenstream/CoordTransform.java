@@ -22,6 +22,7 @@ public class CoordTransform {
     public static void setSwapMode(int mode) {
         xySwapMode = mode;
     }
+    public static int getxySwapMode() { return xySwapMode; }
 
     public static int getSenderWidth() { return senderWidth; }
     public static int getSenderHeight() { return senderHeight; }

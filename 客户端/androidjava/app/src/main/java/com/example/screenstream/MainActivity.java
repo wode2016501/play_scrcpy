@@ -17,8 +17,7 @@ import android.view.Window;
 import android.widget.VideoView;
 
 public class MainActivity extends Activity implements SurfaceHolder.Callback {
-    private static final int XY_SWAP_MODE = 0;   // 必须与 C 端一致
-
+    
     private RelativeLayout rootLayout;
     private SurfaceView surfaceView;
     private TextView statusTextView;
@@ -194,7 +193,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                                             @Override
                                             public void run() {
                                                 // 根据 XY_SWAP_MODE 计算接收端分辨率（服务端屏幕尺寸）
-                                                if (XY_SWAP_MODE == 1) {
+                                                if (CoordTransform.getxySwapMode() == 1) {
                                                     CoordTransform.setReceiverSize(videoHeight, videoWidth);
                                                 } else {
                                                     CoordTransform.setReceiverSize(videoWidth, videoHeight);
