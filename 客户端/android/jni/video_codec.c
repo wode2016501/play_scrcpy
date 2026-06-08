@@ -12,7 +12,7 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-
+int qinputCount = 0,inputCount = 0, outputCount = 0;
 extern int  RECEIVER_WIDTH ; 
 extern int  RECEIVER_HEIGHT; 
 extern int  XY_SWAP_MODE; 
@@ -56,6 +56,7 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
 	LOGI("视频分辨率: %dx%d", width, height);
 
 	if(XY_SWAP_MODE==1){
+        
 		RECEIVER_WIDTH=height;
 		RECEIVER_HEIGHT=width;
 	}else{
@@ -78,7 +79,7 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
 
 	int buffersize = 1024 * 1024 * 6;
 	char* buffer = malloc(buffersize);
-	int qinputCount = 0,inputCount = 0, outputCount = 0;
+	
 	ssize_t bufidx ;
 	size_t bufsize;
 	uint8_t* buf ; 
@@ -116,9 +117,11 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
 			LOGI("视频: 输入=%d 输出=%d,丢弃=%d", inputCount, outputCount,qinputCount);
 		}
 	}
-
+    
 	// free(buffer);
 	AMediaCodec_stop(codec);
 	AMediaCodec_delete(codec);
 	AMediaFormat_delete(format);
 }
+
+

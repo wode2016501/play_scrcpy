@@ -11,14 +11,12 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <signal.h>
-//#define printf(...) printf( LOG_TAG, __VA_ARGS__)
-//#define fprintf(stderr,...) fprintf(stderr, LOG_TAG, __VA_ARGS__)
-//#define printf(...) printf(  __VA_ARGS__)
-
-
-
-
-
+#include <linux/time.h>
+// #define printf(...) printf( LOG_TAG, __VA_ARGS__)
+// #define fprintf(stderr,...) fprintf(stderr, LOG_TAG, __VA_ARGS__)
+// #define printf(...) printf(  __VA_ARGS__)
+char iID[10];
+int eventCount = 0;
 #define PORT 9000
 int SCREEN_WIDTH = 2376;
 int SCREEN_HEIGHT = 1080;
@@ -58,14 +56,44 @@ static int touchCount = 0;
 static pthread_mutex_t touchMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t uinputMutex = PTHREAD_MUTEX_INITIALIZER;
 
+// 延时
+struct idtime
+{
+	struct timespec prev_ts;
+	struct timespec now;
+};
+/*
+   struct idtime {
+   struct timespec prev_ts;
+   struct timespec now;
+   };
+   struct idtime tidt[10];
+   struct idtime *idt = tidt;   // 指向数组首元素
+   memset(idt, 0, sizeof(tidt));  // 所有成员初始为0
+
+   for (int i = 0; i < count; i++) {
+   clock_gettime(CLOCK_MONOTONIC, &idt[i].now);   // 注意用 . 而不是 ->
+   long long interval_us = 0;
+   if (idt[i].prev_ts.tv_sec != 0 || idt[i].prev_ts.tv_nsec != 0) {  // 避免初始0导致的误判
+   interval_us = (idt[i].now.tv_sec - idt[i].prev_ts.tv_sec) * 1000000LL +
+   (idt[i].now.tv_nsec - idt[i].prev_ts.tv_nsec) / 1000;
+   }
+   if (interval_us > 0 && interval_us < 3000) {
+// 间隔太小，跳过此事件（不写入）
+continue;   // 而不是 return
+}
+idt[i].prev_ts = idt[i].now;
+// ... 写入 uinput ...
+}
+*/
+
 // ==================== 注入事件到虚拟设备 ====================
-int inject_event(int uinput_fd, struct input_event *ev)
+int inject_event(int uinput_fd, input_event_test *ev)
 {
 	if (uinput_fd < 0)
 	{
 		return -1;
 	}
-
 	if (write(uinput_fd, ev, sizeof(struct input_event)) != sizeof(struct input_event))
 	{
 		perror("写入设备失败");
@@ -99,40 +127,45 @@ void send_touch_event(int id, int x, int y, int action)
 {
 	if (action == 0)
 	{ // 按下
-		send_input_event_test(EV_ABS, ABS_MT_SLOT, id % 10);
+		send_input_event_test(EV_ABS, ABS_MT_SLOT, id);
 		send_input_event_test(EV_ABS, ABS_MT_TRACKING_ID, id);
 		send_input_event_test(EV_ABS, ABS_MT_POSITION_X, x);
 		send_input_event_test(EV_ABS, ABS_MT_POSITION_Y, y);
 		send_input_event_test(EV_KEY, BTN_TOUCH, 1);
+		eventCount++;
 	}
 	else if (action == 1)
 	{ // 移动
-		send_input_event_test(EV_ABS, ABS_MT_SLOT, id % 10);
+		send_input_event_test(EV_ABS, ABS_MT_SLOT, id);
 		send_input_event_test(EV_ABS, ABS_MT_POSITION_X, x);
 		send_input_event_test(EV_ABS, ABS_MT_POSITION_Y, y);
 	}
 	else if (action == 2)
 	{ // 抬起
-		send_input_event_test(EV_ABS, ABS_MT_SLOT, id % 10);
+		send_input_event_test(EV_ABS, ABS_MT_SLOT, id);
 		send_input_event_test(EV_ABS, ABS_MT_TRACKING_ID, -1);
+		eventCount--;
+		/*
+				// 检查是否还有活动手指
+				int hasActive = 0;
+				pthread_mutex_lock(&touchMutex);
+				for (int i = 0; i < touchCount; i++)
+				{
+					if (touchPoints[i].active && touchPoints[i].id != id)
+					{
+						hasActive = 1;
+						break;
+					}
+				}
+				pthread_mutex_unlock(&touchMutex);
 
-		// 检查是否还有活动手指
-		int hasActive = 0;
-		pthread_mutex_lock(&touchMutex);
-		for (int i = 0; i < touchCount; i++)
-		{
-			if (touchPoints[i].active && touchPoints[i].id != id)
-			{
-				hasActive = 1;
-				break;
-			}
-		}
-		pthread_mutex_unlock(&touchMutex);
-
-		if (!hasActive)
-		{
+				if (!hasActive)
+				{
+					send_input_event_test(EV_KEY, BTN_TOUCH, 0);
+				}
+				*/
+		if (eventCount == 0)
 			send_input_event_test(EV_KEY, BTN_TOUCH, 0);
-		}
 	}
 
 	// SYN_REPORT
@@ -146,7 +179,7 @@ void send_key_event(int keyCode, int action)
 	send_input_event_test(EV_SYN, SYN_REPORT, 0);
 	printf("发送按键: code=%d, action=%s", keyCode, action ? "DOWN" : "UP");
 }
-
+/*
 // ==================== 触摸点管理 ====================
 void add_touch_point(int id, int x, int y)
 {
@@ -189,7 +222,7 @@ void clear_all_touch_points()
 	memset(touchPoints, 0, sizeof(touchPoints));
 	pthread_mutex_unlock(&touchMutex);
 }
-
+*/
 // ==================== 启用所有按键 ====================
 void enable_all_keys(int fd)
 {
@@ -201,13 +234,13 @@ void enable_all_keys(int fd)
 	// 字母键 A-Z
 	for (int key = KEY_A; key <= KEY_Z; key++)
 	{
-		ioctl(fd, UI_SET_KEYBIT, key);
+	ioctl(fd, UI_SET_KEYBIT, key);
 	}
 
 	// 数字键 0-9
 	for (int key = KEY_0; key <= KEY_9; key++)
 	{
-		ioctl(fd, UI_SET_KEYBIT, key);
+	ioctl(fd, UI_SET_KEYBIT, key);
 	}
 
 	// 功能键
@@ -240,7 +273,7 @@ void enable_all_keys(int fd)
 	ioctl(fd, UI_SET_KEYBIT, KEY_RIGHTCTRL);
 	ioctl(fd, UI_SET_KEYBIT, KEY_LEFTALT);
 	ioctl(fd, UI_SET_KEYBIT, KEY_RIGHTALT);
-*/
+	*/
 	printf("✓ 已启用所有按键\n");
 }
 
@@ -288,7 +321,7 @@ int create_virtual_device()
 	uidev.absmin[ABS_MT_POSITION_Y] = 0;
 	uidev.absmax[ABS_MT_POSITION_Y] = SCREEN_HEIGHT - 1;
 	uidev.absmin[ABS_MT_SLOT] = 0;
-	uidev.absmax[ABS_MT_SLOT] = 9; //最大支持10个触点
+	uidev.absmax[ABS_MT_SLOT] = 9; // 最大支持10个触点
 	uidev.absmin[ABS_MT_TRACKING_ID] = 0;
 	uidev.absmax[ABS_MT_TRACKING_ID] = 65535;
 
@@ -332,50 +365,98 @@ int read_(int fd, char *buf, size_t size, int max_size)
 void *receive_thread(void *arg)
 {
 	int client_fd = *(int *)arg;
-	struct input_event ev;
+	//	struct input_event ev;
 	ssize_t bytes_read;
 	TouchPoint tp;
 	KeyPoint kp;
 	printf("开始接收触摸事件并注入到虚拟设备...\n\n");
 	int size = 0;
-	int eventCount = 0;
 	int eventmax = 0;
-	int id[10];
+	//	//int id[10];
+	// memset(id, 0, sizeof(id));
+	struct idtime tidt[10];
+	struct idtime *idt = tidt;	  // 指向数组首元素
+	memset(idt, 0, sizeof(tidt)); // 所有成员初始为0
+	long long interval_us = 0;
+	char id[10];
+	int iid=0;
 	memset(id, 0, sizeof(id));
 	while (running)
 	{
-		bytes_read = read_(client_fd, &size, sizeof(int), sizeof(int));
+		bytes_read = read_(client_fd, (char *)&size, sizeof(int), sizeof(int));
 		if (size == sizeof(TouchPoint))
 		{
-			bytes_read = read_(client_fd, &tp, sizeof(TouchPoint), sizeof(TouchPoint));
+			bytes_read = read_(client_fd, (char *)&tp, sizeof(TouchPoint), sizeof(TouchPoint));
 			if (bytes_read == sizeof(TouchPoint))
 			{
-			  tp.id=tp.id+client_fd*10;
-				printf("接收触摸事件: id=%d, x=%d, y=%d, action=%d\n", tp.id, tp.x, tp.y, tp.active);
-				send_touch_event(tp.id, tp.x, tp.y, tp.active);
-				if (tp.active == 0)
+				if (tp.id > 10)
+					continue;
+
+				if (tp.id < 10)
 				{
+					clock_gettime(CLOCK_MONOTONIC, &idt[tp.id].now); // 注意用 . 而不是 ->
+					interval_us = (idt[tp.id].now.tv_sec - idt[tp.id].prev_ts.tv_sec) * 1000000LL +
+								  (idt[tp.id].now.tv_nsec - idt[tp.id].prev_ts.tv_nsec) / 1000;
+					idt[tp.id].prev_ts = idt[tp.id].now;
+					if (interval_us < 8000 && tp.active == 1)
+					{
+						continue;
+						//	usleep(3000);
+					}
+					if (interval_us < 8000 && tp.active == 2)
+					{
+						//	continue;
+						usleep(6000);
+					}
+				}
+
+				if (tp.active == 0 && eventCount < 10)
+				{
+					printf("按下id=%d\n", tp.id);
+					for (int i = 0; i < 10; i++)
+					{
+						if (iID[i] == 0)
+						{
+							iID[i] = 1;
+							id[tp.id] = i + 1;
+							break;
+						}
+					}
+					printf("分配id=%d\n", id[tp.id]); 
+					/*
 					id[eventCount] = tp.id;
 					eventCount++;
 					eventmax++;
 					add_touch_point(tp.id, tp.x, tp.y);
+					*/
 				}
+				iid = id[tp.id];
+				if (tp.id < 0)
+					continue;
+
 				if (tp.active == 2)
 				{
+					printf("释放id=%d,%d,%d\n",id[tp.id] , id[tp.id] - 1,tp.id);
+					iID[id[tp.id] - 1] = 0;
+					id[tp.id] = 0;
+					/*
 					eventCount--;
 					remove_touch_point(tp.id);
+					*/
 				}
+				printf("接收触摸事件: id=%d %d, x=%d, y=%d, action=%d,%lldms\n", tp.id, iid, tp.x, tp.y, tp.active, interval_us);
+				send_touch_event(iid, tp.x, tp.y, tp.active);
 				continue;
 			}
 			else
 			{
-				fprintf(stderr,"读取触摸事件失败\n");
+				fprintf(stderr, "读取触摸事件失败\n");
 				break;
 			}
 		}
 		if (size == sizeof(KeyPoint))
 		{
-			bytes_read = read_(client_fd, &kp, sizeof(KeyPoint), sizeof(KeyPoint));
+			bytes_read = read_(client_fd, (char *)&kp, sizeof(KeyPoint), sizeof(KeyPoint));
 			if (bytes_read == sizeof(KeyPoint))
 			{
 				printf("接收按键事件: keyCode=%d, action=%d\n", kp.keyCode, kp.active);
@@ -384,37 +465,23 @@ void *receive_thread(void *arg)
 			}
 			else
 			{
-				fprintf(stderr,"读取按键事件失败\n");
+				fprintf(stderr, "读取按键事件失败\n");
 				break;
 			}
 		}
 		break;
 	}
-	if (eventCount > 0)
+	for (int i = 0; i < 10; i++)
 	{
-		printf("还有%d个未抬起的触摸点，正在清理...\n", eventCount);
-		for (int i = 0; i < touchCount; i++)
+		if (id[i] != 0)
 		{
-			for (int j = 0; j < eventmax; j++)
-			{
-				if (touchPoints[i].id == id[j])
-				{
-					printf("清理触摸点 id=%d\n", touchPoints[i].id);
-					send_touch_event(touchPoints[i].id, touchPoints[i].x, touchPoints[i].y, 2);
-					eventCount--;
-					if (eventCount <= 0)
-					{
-						break;
-					}
-				}
-			}
+			fprintf(stderr,"还有id=%d 没有释放\n", id[i]);
+			send_touch_event(id[i], 0, 0, 2);
+			iID[id[i] - 1] = 0;
+			id[i] = 0;
 		}
 	}
-	if (eventCount > 0)
-	{
-		fprintf(stderr,"警告：仍有%d个触摸点未正确抬起！\n", eventCount);
-		running = 0;
-	}
+	printf("接收线程退出 %d\n", client_fd);
 	close(client_fd);
 	return NULL;
 }
@@ -442,7 +509,7 @@ int main(int argc, char **argv)
 	struct sockaddr_in server_addr, client_addr;
 	socklen_t client_len = sizeof(client_addr);
 	pthread_t recv_thread;
-
+	memset(iID, 0, sizeof(iID)); // 初始化数组
 	printf("========================================\n");
 	printf("统一接收端（设备创建 + 网络接收）\n");
 	printf("分辨率%dx%d\n", SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -452,8 +519,6 @@ int main(int argc, char **argv)
 	// 设置信号处理
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
-
-
 
 	// 2. 创建 socket 服务器
 	server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -475,7 +540,6 @@ int main(int argc, char **argv)
 
 	if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
 	{
-		fprintf(stderr,"端口%d ",PORT);
 		perror("绑定失败");
 		close(server_socket);
 		return 1;
@@ -491,8 +555,7 @@ int main(int argc, char **argv)
 
 	printf("等待发送端连接，端口: %d...\n", PORT);
 
-
-		// 1. 创建虚拟设备
+	// 1. 创建虚拟设备
 	uinput_fd = create_virtual_device();
 	if (uinput_fd < 0)
 	{
