@@ -98,10 +98,13 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
 			deng=0; 
 
 		}else{
+            //无丢帧方案
+            /*
 			size =  readyz(fd,buffer,buffersize);
 			if (size < 1) 
 				break; 
 			qinputCount++;
+            */
 		}
 		AMediaCodecBufferInfo info;
 		while(1){
