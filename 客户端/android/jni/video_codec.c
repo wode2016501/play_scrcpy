@@ -13,9 +13,7 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 int qinputCount = 0,inputCount = 0, outputCount = 0;
-extern int  RECEIVER_WIDTH ; 
-extern int  RECEIVER_HEIGHT; 
-extern int  XY_SWAP_MODE; 
+
 // 读取函数声明
 int read_(int fd, char* buf, size_t size, int max_size);
 int readyz(int fd, char* buf, int size_max);
@@ -55,15 +53,9 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
 	height = ntohl(height);
 	LOGI("视频分辨率: %dx%d", width, height);
 
-	if(XY_SWAP_MODE==1){
-        
-		RECEIVER_WIDTH=height;
-		RECEIVER_HEIGHT=width;
-	}else{
-		RECEIVER_WIDTH=width;
-		RECEIVER_HEIGHT=height;
-	}
-
+    
+    
+    
 	ANativeWindow_setBuffersGeometry(window, width, height, WINDOW_FORMAT_RGBX_8888);
 
 	AMediaCodec* codec = AMediaCodec_createDecoderByType("video/avc");
@@ -98,13 +90,13 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
 			deng=0; 
 
 		}else{
-            //无丢帧方案
-            /*
+            //无丢帧方案要注销这里
+            
 			size =  readyz(fd,buffer,buffersize);
 			if (size < 1) 
 				break; 
 			qinputCount++;
-            */
+            
 		}
 		AMediaCodecBufferInfo info;
 		while(1){

@@ -557,8 +557,40 @@ void android_main(struct android_app* app) {
 	int flag = 1;
 	int ret=setsockopt(touchSocket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
 	if(ret<0){
+        close(audioFd);
+		close(videoFd);
+        close(touchSocket);
        return ; 
         }
+   int width=0;
+   int height=0; 
+   ret=read(touchSocket,&width,sizeof(int)); 
+   if(ret!=4)
+       {
+        close(audioFd);
+        close(videoFd);
+        close(touchSocket);
+       return ; 
+        }
+   ret=read(touchSocket,&height,sizeof(int)); 
+   if(ret!=4)
+       {
+        close(audioFd);
+        close(videoFd);
+        close(touchSocket);
+       return ; 
+        }
+        char buf[102];
+    ret=read(touchSocket,buf,102); 
+    if(XY_SWAP_MODE==1){
+        RECEIVER_WIDTH=height;
+        RECEIVER_HEIGHT=width;
+    }else{
+        RECEIVER_WIDTH=width;
+        RECEIVER_HEIGHT=height;
+    }
+
+        
 	LOGI("NativeActivity 启动\nip=%s",ipip);
 	app->onInputEvent = on_input_event;
 	app->onAppCmd = on_app_cmd;  // ★ 添加生命周期回调
