@@ -577,6 +577,9 @@ int main(int argc, char **argv)
 			close(server_socket);
 			return 1;
 		}
+		write(client_fd, &SCREEN_WIDTH, sizeof(SCREEN_WIDTH)); // 发送确认消息
+		write(client_fd, &SCREEN_HEIGHT, sizeof(SCREEN_HEIGHT));
+		write(client_fd, "ok\n", 3);
 
 		printf("✓ 已连接到发送端: %s\n", inet_ntoa(client_addr.sin_addr));
 
