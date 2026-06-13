@@ -582,14 +582,16 @@ void android_main(struct android_app* app) {
         }
         char buf[102];
     ret=read(touchSocket,buf,102); 
-    if(XY_SWAP_MODE==1){
+    
+  /*  if(XY_SWAP_MODE==1){
         RECEIVER_WIDTH=height;
         RECEIVER_HEIGHT=width;
     }else{
         RECEIVER_WIDTH=width;
         RECEIVER_HEIGHT=height;
-    }
-
+    }*/
+       RECEIVER_WIDTH=width;
+       RECEIVER_HEIGHT=height;
         
 	LOGI("NativeActivity 启动\nip=%s",ipip);
 	app->onInputEvent = on_input_event;
