@@ -57,7 +57,7 @@ void *video_decode(void *k) {
 	char buff[77];
 	int ret = read_(fd, buff, 69, 69);
 	if (ret != 69) {
-		printf("读取视频头失败");
+		printf("读取视频头失败\n");
 		return 0;
 	}
 
@@ -69,7 +69,7 @@ void *video_decode(void *k) {
 
 	width = ntohl(width);
 	height = ntohl(height);
-	printf("视频分辨率: %dx%d", width, height);
+	printf("视频分辨率: %dx%d\n", width, height);
 	//ANativeWindow_setBuffersGeometry(0, width, height, WINDOW_FORMAT_RGBX_8888);
 
 	AMediaCodec* codec = AMediaCodec_createDecoderByType("video/avc");
@@ -81,7 +81,7 @@ void *video_decode(void *k) {
 	AMediaCodec_configure(codec, format, 0, NULL, 0);
 	AMediaCodec_start(codec);
 
-	printf("视频解码开始");
+	printf("视频解码开始\n");
 
 	int buffersize = 1024 * 1024 * 6;
 	char* buffer = malloc(buffersize);
@@ -121,7 +121,7 @@ void *video_decode(void *k) {
 
 int main(int argc,char **argv){
      if(argc!=2){
-     printf("用法: \n\tnc ip:9999 >file\n\t过一分钟以上run:\n\t%s file",argv[0]);
+     printf("用法: \n\tnc ip:9999 >file\n\t过一分钟以上run:\n\t%s file\n",argv[0]);
      return 0;
      }
     fd=open(argv[1],0);
