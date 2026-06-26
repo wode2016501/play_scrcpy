@@ -71,7 +71,10 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
 
 	int buffersize = 1024 * 1024 * 6;
 	char* buffer = malloc(buffersize);
-	
+	if(buffer==0){
+        return ; 
+    }
+        
 	ssize_t bufidx ;
 	size_t bufsize;
 	uint8_t* buf ; 
@@ -87,7 +90,7 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
 				break; 
 			AMediaCodec_queueInputBuffer(codec, bufidx, 0, size, 0, 0);
 			inputCount++;
-			deng=0; 
+			deng=16666; 
 
 		}else{
             //无丢帧方案要注销这里
@@ -112,8 +115,7 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
 			LOGI("视频: 输入=%d 输出=%d,丢弃=%d", inputCount, outputCount,qinputCount);
 		}
 	}
-    
-	// free(buffer);
+	 free(buffer);
 	AMediaCodec_stop(codec);
 	AMediaCodec_delete(codec);
 	AMediaFormat_delete(format);

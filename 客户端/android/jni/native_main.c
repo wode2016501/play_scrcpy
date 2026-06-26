@@ -62,7 +62,6 @@ int  XY_SWAP_MODE =  0; // 修改这里：0=不转换, 1=竖屏转横屏, 2=只�
 
 #define TOUCH_RECEIVER_PORT 9000
 #define IP "192.168.100.1"
-char ipip[20]; 
 #define VIDEO_SERVER_PORT 9999
 #define AUDIO_SERVER_PORT 9998
 
@@ -241,7 +240,7 @@ void send_touch_event(int id, int x, int y, int action) {
 	int mapped_x = map_x(x, y);
 	int mapped_y = map_y(x, y);
 
-	LOGD("坐标转换: (%d,%d) -> (%d,%d) [模式=%d] %dx%d ", x, y, mapped_x, mapped_y, XY_SWAP_MODE,RECEIVER_WIDTH,RECEIVER_HEIGHT);
+	LOGD("坐标转换: id: %d(%d,%d) -> (%d,%d) [模式=%d] %dx%d ", id,x, y, mapped_x, mapped_y, XY_SWAP_MODE,RECEIVER_WIDTH,RECEIVER_HEIGHT);
 
 
 	TouchPoint touch_point;
@@ -314,26 +313,16 @@ int handle_touch_event(AInputEvent* event) {
 								int x = (int) AMotionEvent_getX(event, pointerIndex);
 								int y = (int) AMotionEvent_getY(event, pointerIndex);
 
-								LOGI("DOWN: id=%d, 原始坐标=(%d,%d)", id, x, y);
+							//	LOGI("DOWN: id=%d, 原始坐标=(%d,%d)", id, x, y);
 								send_touch_event(id, x, y, 0);
 								break;
 							}
 
 		case AMOTION_EVENT_ACTION_MOVE: {
 							int count = AMotionEvent_getPointerCount(event);
-							if(count>10)count=10; 
+							//if(count>10)count=10; 
 							for (int i = 0; i < count; i++) {
-                                /*
-								clock_gettime(CLOCK_MONOTONIC, &idt[i].now);   // 注意用 . 而不是 ->
-								interval_us = (idt[i].now.tv_sec - idt[i].prev_ts.tv_sec) * 1000000LL +
-									(idt[i].now.tv_nsec - idt[i].prev_ts.tv_nsec) / 1000;
-
-								if (interval_us < 3000) {
-									// 间隔太小，跳过此事件（不写入）
-									continue;   // 而不是 return
-								}
-								idt[i].prev_ts = idt[i].now;
-                                */
+     
 								int id = AMotionEvent_getPointerId(event, i);
 								int x = (int) AMotionEvent_getX(event, i);
 								int y = (int) AMotionEvent_getY(event, i);
@@ -520,6 +509,7 @@ static void on_app_cmd(struct android_app* app, int32_t cmd) {
 
 // ==================== NativeActivity 入口 ====================
 void android_main(struct android_app* app) {
+    char ipip[20]; 
 	sprintf(ipip,"%s",IP); 
 	int fd=open("/sdcard/scrcpy.txt",0); 
 	if(fd>0){
@@ -582,14 +572,6 @@ void android_main(struct android_app* app) {
         }
         char buf[102];
     ret=read(touchSocket,buf,102); 
-    
-  /*  if(XY_SWAP_MODE==1){
-        RECEIVER_WIDTH=height;
-        RECEIVER_HEIGHT=width;
-    }else{
-        RECEIVER_WIDTH=width;
-        RECEIVER_HEIGHT=height;
-    }*/
        RECEIVER_WIDTH=width;
        RECEIVER_HEIGHT=height;
         
