@@ -126,6 +126,7 @@ void send_touch_event(int id, int x, int y, int action)
 
 		if (eventCount < 0){
 			send_input_event_test(EV_KEY, BTN_TOUCH, 0);
+			memset(iID,0,sizeof(iID));
 			eventCount = 0;
 		}
 		//if (eventCount == 0)
