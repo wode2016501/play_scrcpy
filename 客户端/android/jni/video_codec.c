@@ -17,7 +17,7 @@ int qinputCount = 0,inputCount = 0, outputCount = 0;
 // 读取函数声明
 int read_(int fd, char* buf, size_t size, int max_size);
 int readyz(int fd, char* buf, int size_max);
-
+int rreadyz(int fd, char* buf, int size_max);
 
 
 // 判断 H.264 NALU 类型
@@ -36,21 +36,22 @@ int get_nalu_type(const uint8_t* data, size_t size) {
 
 
 void video_decode(int fd, ANativeWindow* window, int* running) {
-	char buff[77];
-	int ret = read_(fd, buff, 69, 69);
+	//char buff[77];
+	/*int ret = read_(fd, buff, 69, 69);
 	if (ret != 69) {
 		LOGE("读取视频头失败");
 		return;
-	}
-
+	}*/
+    
 	int width, height;
-	ret = read_(fd, (char*)&width, 4, 69);
+	int ret = read_(fd, (char*)&width, 4, 69);
 	if (ret != 4) return;
 	ret = read_(fd, (char*)&height, 4, 69);
 	if (ret != 4) return;
+    
 
-	width = ntohl(width);
-	height = ntohl(height);
+	//width = ntohl(width);
+	//height = ntohl(height);
 	LOGI("视频分辨率: %dx%d", width, height);
 
     
@@ -85,7 +86,8 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
 		if (bufidx >= 0) {
 
 			buf = AMediaCodec_getInputBuffer(codec, bufidx, &bufsize);
-			size = readyz(fd, (char*)buf, bufsize);
+			size = rreadyz(fd, (char*)buf, bufsize);
+ 
 			if (size < 1) 
 				break; 
 			AMediaCodec_queueInputBuffer(codec, bufidx, 0, size, 0, 0);
@@ -95,7 +97,8 @@ void video_decode(int fd, ANativeWindow* window, int* running) {
 		}else{
             //无丢帧方案要注销这里
             
-			size =  readyz(fd,buffer,buffersize);
+			size =  rreadyz(fd,buffer,buffersize);
+            
 			if (size < 1) 
 				break; 
 			qinputCount++;

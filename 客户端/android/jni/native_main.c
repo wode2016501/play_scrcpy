@@ -414,13 +414,29 @@ int read_(int fd, char* buf, size_t size, int max_size) {
 	return size;
 }
 
+int rreadyz(int fd, char* buf, int size_max) {
+   /* long long pts;
+    int ret = read_(fd, (char*)&pts, 8, size_max);
+    if (ret != 8) return -1;
+*/
+    int size;
+    int ret = read_(fd, (char*)&size, 4, 4);
+    if (ret != 4) return -1;
+  //  size = ntohl(size);
+    if (size > 0 && size <= size_max) {
+        ret = read_(fd, buf, size, size_max);
+        if (ret == size) return size;
+    }
+    return -1;
+}
+
 int readyz(int fd, char* buf, int size_max) {
 	long long pts;
 	int ret = read_(fd, (char*)&pts, 8, size_max);
 	if (ret != 8) return -1;
 
 	int size;
-	ret = read_(fd, (char*)&size, 4, size_max);
+	 ret = read_(fd, (char*)&size, 4, size_max);
 	if (ret != 4) return -1;
 
 	size = ntohl(size);

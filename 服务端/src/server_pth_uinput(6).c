@@ -52,10 +52,10 @@ static int uinput_fd = -1;
 int event_count = 0;
 static int server_socket = -1;
 static int running = 1;
-static TouchPoint touchPoints[100];
+//static TouchPoint touchPoints[100];
 static int touchCount = 0;
 int client_count = 0;
-static pthread_mutex_t touchMutex = PTHREAD_MUTEX_INITIALIZER;
+// static pthread_mutex_t touchMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t uinputMutex = PTHREAD_MUTEX_INITIALIZER;
 
 // 延时
@@ -91,13 +91,6 @@ int send_input_event_test(int type, int code, int value)
 	test_ev.type = type;
 	test_ev.code = code;
 	test_ev.value = value;
-	/*pthread_mutex_lock(&uinputMutex);
-	if (inject_event(uinput_fd, &test_ev) == 0)
-	{
-		event_count++;
-	}
-	pthread_mutex_unlock(&uinputMutex);
-	*/
 	if (inject_event(uinput_fd, &test_ev) != 0)
 		return -1;
 	return 0;
@@ -126,9 +119,11 @@ void send_touch_event(int id, int x, int y, int action)
 		send_input_event_test(EV_ABS, ABS_MT_SLOT, id);
 		send_input_event_test(EV_ABS, ABS_MT_TRACKING_ID, -1);
 		eventCount--;
-
+		// printf("eventCount :%d\n", eventCount);
 		if (eventCount < 0)
 		{
+			fprintf(stderr, "eventCount :%d < 0\n", eventCount);
+			running = 0;
 			send_input_event_test(EV_KEY, BTN_TOUCH, 0);
 			memset(iID, 0, sizeof(iID));
 			eventCount = 0;
@@ -146,7 +141,7 @@ void send_key_event(int keyCode, int action)
 {
 	send_input_event_test(EV_KEY, keyCode, action);
 	send_input_event_test(EV_SYN, SYN_REPORT, 0);
-	printf("发送按键: code=%d, action=%s", keyCode, action ? "DOWN" : "UP");
+	// printf("发送按键: code=%d, action=%s", keyCode, action ? "DOWN" : "UP");
 }
 
 // ==================== 启用所有按键 ====================
@@ -309,17 +304,18 @@ void *receive_thread(void *arg)
 	while (running)
 	{
 		bytes_read = read_(client_fd, (char *)&size, sizeof(int), sizeof(int));
-		if (bytes_read <1)
+		if (bytes_read < 1)
 			break;
 		if (size == sizeof(TouchPoint))
 		{
-			printf("触摸事件\n");
+
 			bytes_read = read_(client_fd, (char *)&tp, sizeof(TouchPoint), sizeof(TouchPoint));
 			if (bytes_read == sizeof(TouchPoint))
 			{
 				if (tp.id > 10)
 					continue;
-
+				if (tp.id < 0)
+					continue;
 				if (tp.id < 10)
 				{
 					clock_gettime(CLOCK_MONOTONIC, &idt[tp.id].now);
@@ -337,9 +333,14 @@ void *receive_thread(void *arg)
 					}
 				}
 
-				if (tp.active == 0 && eventCount < sizeof(iID) && id[tp.id] == 0)
+				if (tp.active == 0 && eventCount < sizeof(iID))
 				{
-					printf("按下id=%d\n", tp.id);
+					printf("按下id=%d ", tp.id);
+					if (id[tp.id] != 0)
+					{
+						fprintf(stderr, "id=%d 重复按下\n", id[tp.id]);
+						continue;
+					}
 					for (int i = 0; i < sizeof(iID); i++)
 					{
 						if (iID[i] == 0)
@@ -349,19 +350,26 @@ void *receive_thread(void *arg)
 							break;
 						}
 					}
-					printf("分配id=%d\n", id[tp.id]);
+					printf("分配id=%d eventCount=%d\n", id[tp.id], eventCount);
 				}
 				iid = id[tp.id];
-				if (tp.id < 0)
+				if (tp.active == 1 && iid < 1){
+					fprintf(stderr, "iid 0<%d mov不存在\n", id[tp.id]);
 					continue;
-
+				}
 				if (tp.active == 2)
 				{
 					printf("释放id=%d,%d,%d\n", id[tp.id], id[tp.id] - 1, tp.id);
+					if (id[tp.id] == 0)
+					{
+						fprintf(stderr, "id=%d 不存在\n", id[tp.id]);
+						// break;
+						continue;
+					}
 					iID[id[tp.id] - 1] = 0;
 					id[tp.id] = 0;
 				}
-				printf("接收触摸事件: id=%d %d, x=%d, y=%d, action=%d,%lldms\n", tp.id, iid, tp.x, tp.y, tp.active, interval_us);
+				// printf("接收触摸事件: id=%d %d, x=%d, y=%d, action=%d,%lldms\n", tp.id, iid, tp.x, tp.y, tp.active, interval_us);
 				pthread_mutex_lock(&uinputMutex);
 				send_touch_event(iid, tp.x, tp.y, tp.active);
 				pthread_mutex_unlock(&uinputMutex);
@@ -378,7 +386,7 @@ void *receive_thread(void *arg)
 			bytes_read = read_(client_fd, (char *)&kp, sizeof(KeyPoint), sizeof(KeyPoint));
 			if (bytes_read == sizeof(KeyPoint))
 			{
-				printf("接收按键事件: keyCode=%d, action=%d\n", kp.keyCode, kp.active);
+				// printf("接收按键事件: keyCode=%d, action=%d\n", kp.keyCode, kp.active);
 				pthread_mutex_lock(&uinputMutex);
 				send_key_event(kp.keyCode, kp.active);
 				pthread_mutex_unlock(&uinputMutex);
@@ -390,6 +398,7 @@ void *receive_thread(void *arg)
 				break;
 			}
 		}
+		fprintf(stderr, "读取size=%d\n", size);
 		break;
 	}
 	for (int i = 0; i < sizeof(id); i++)
@@ -403,9 +412,10 @@ void *receive_thread(void *arg)
 		}
 	}
 	client_count--;
+	fprintf(stderr, "客户端为%d,发送退出事件\n", client_count);
 	if (client_count < 1)
 	{
-		printf("客户端为%d,发送退出事件\n", client_count);
+		//	fprintf(stderr, "客户端为%d,发送退出事件\n", client_count);
 		send_input_event_test(EV_KEY, BTN_TOUCH, 0);
 		memset(iID, 0, sizeof(iID));
 		eventCount = 0;
@@ -413,6 +423,7 @@ void *receive_thread(void *arg)
 
 	printf("接收线程退出 %d\n", client_fd);
 	close(client_fd);
+	pthread_exit(NULL);
 	return NULL;
 }
 
@@ -498,7 +509,7 @@ int main(int argc, char **argv)
 	printf("\n");
 
 	// 接受连接
-	while (1)
+	while (running)
 	{
 		client_fd = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
 		if (client_fd < 0)
