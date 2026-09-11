@@ -551,6 +551,7 @@ void android_main(struct android_app* app) {
 		close(audioFd);
 		return;
 	}
+    #if 1
 	touchSocket = tcp_connect(ipip, TOUCH_RECEIVER_PORT);
 	if (touchSocket < 0) {
 		LOGE("连接按键服务器失败");
@@ -565,7 +566,7 @@ void android_main(struct android_app* app) {
 	if(ret<0){
         close(audioFd);
 		close(videoFd);
-        close(touchSocket);
+       // close(touchSocket);
        return ; 
         }
    int width=0;
@@ -590,9 +591,12 @@ void android_main(struct android_app* app) {
     ret=read(touchSocket,buf,102); 
        RECEIVER_WIDTH=width;
        RECEIVER_HEIGHT=height;
+     
         
-	LOGI("NativeActivity 启动\nip=%s",ipip);
+	
 	app->onInputEvent = on_input_event;
+     #endif
+     LOGI("NativeActivity 启动\nip=%s",ipip);
 	app->onAppCmd = on_app_cmd;  // ★ 添加生命周期回调
 	set_fullscreen(app);
 	pthread_create(&videoThread, NULL, video_decode_thread, NULL);

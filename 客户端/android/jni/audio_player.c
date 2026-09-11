@@ -45,8 +45,6 @@ void bufferQueueCallback(SLAndroidSimpleBufferQueueItf bq, void* context) {
 		return ;
 	}
 	(*bq)->Enqueue(bq, pcmBuffer, ret);
-
-
 }
 
 int  audio_play(int fd, int* running) {
@@ -76,8 +74,9 @@ int  audio_play(int fd, int* running) {
 
 	LOGD("配置 PCM 格式");
 	SLDataLocator_AndroidSimpleBufferQueue loc_bufq = {
-		SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 2
+		SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 1
 	};
+    
 
 	SLDataFormat_PCM format_pcm = {
 		SL_DATAFORMAT_PCM, 2, 48000 * 1000,
